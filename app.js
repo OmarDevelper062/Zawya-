@@ -5,7 +5,7 @@
  */
 const CHANNEL_ID = 'UCIC_9sLEVs6C5xCIRV9aN5Q';
 const UPLOADS_PLAYLIST = 'UU' + CHANNEL_ID.slice(2);
-const BUSINESS_EMAIL = 'business@zawiya.example'; // Replace with the channel's real inquiry address.
+const BUSINESS_EMAIL = 'omarads00612@gmail.com';
 const CONFIG = { apiKey: '', feedUrl: '' };
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -81,13 +81,35 @@ function updateThemeButton() { const light = document.body.classList.contains('l
 updateThemeButton();
 themeButton.addEventListener('click', () => { document.body.classList.toggle('light'); localStorage.setItem('zawiya-theme', document.body.classList.contains('light') ? 'light' : 'dark'); updateThemeButton(); });
 window.addEventListener('scroll', () => $('.header').classList.toggle('scrolled', window.scrollY > 10), { passive: true });
-$('#newsletter').addEventListener('submit', event => { event.preventDefault(); $('.form-status').textContent = 'شكرًا لاهتمامك! اربط النموذج بخدمة بريدية لبدء استقبال الاشتراكات.'; event.currentTarget.reset(); });
-$('.copy-email').addEventListener('click', async () => { try { await navigator.clipboard.writeText(BUSINESS_EMAIL); $('.copy-email').textContent = '✓'; setTimeout(() => $('.copy-email').textContent = '⧉', 1600); } catch { $('.copy-email').title = BUSINESS_EMAIL; } });
+async function sendToInbox(form, status, fields, subject) {
+  status.textContent = 'جارٍ إرسال رسالتك…';
+  const submitButton = form.querySelector('[type="submit"]');
+  submitButton.disabled = true;
+  try {
+    const response = await fetch(`https://formsubmit.co/ajax/${BUSINESS_EMAIL}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ ...fields, _subject: subject, _template: 'table' })
+    });
+    const result = await response.json();
+    if (!response.ok || result.success === false) throw new Error(result.message || 'Submission failed');
+    status.textContent = 'تم الإرسال بنجاح. شكرًا لك!';
+    form.reset();
+  } catch {
+    status.textContent = 'تعذّر الإرسال الآن. تحقق من اتصالك بالإنترنت وحاول مجددًا.';
+  } finally {
+    submitButton.disabled = false;
+  }
+}
+$('#newsletter').addEventListener('submit', event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  sendToInbox(form, $('.form-status'), { email: $('#newsletter-email').value }, 'اشتراك جديد في القائمة البريدية — زاوية');
+});
+$('.copy-email').addEventListener('click', async event => { event.preventDefault(); event.stopPropagation(); try { await navigator.clipboard.writeText(BUSINESS_EMAIL); $('.copy-email').textContent = '✓'; setTimeout(() => $('.copy-email').textContent = '⧉', 1600); } catch { $('.copy-email').title = BUSINESS_EMAIL; } });
 $('#contact-form').addEventListener('submit', event => {
   event.preventDefault();
   const form = event.currentTarget, data = new FormData(form);
-  const subject = encodeURIComponent(`[${data.get('type')}] ${data.get('name')} — ${data.get('email')}`);
-  const body = encodeURIComponent(`الاسم: ${data.get('name')}\nالبريد: ${data.get('email')}\nنوع التعاون: ${data.get('type')}\n\n${data.get('message')}`);
-  $('.contact-status').textContent = 'سيتم فتح تطبيق البريد لإرسال رسالتك.';
-  window.location.href = `mailto:${BUSINESS_EMAIL}?subject=${subject}&body=${body}`;
+  sendToInbox(form, $('.contact-status'), Object.fromEntries(data.entries()), `[${data.get('type')}] ${data.get('name')}`);
 });
+
